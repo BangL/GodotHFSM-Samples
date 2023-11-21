@@ -14,6 +14,10 @@ config/name="Bromatos"
 config/features=PackedStringArray("4.1", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+CoroutineManager="res://HCoroutines/CoroutineManager.tscn"
+
 [dotnet]
 
 project/assembly_name="Bromatos"
