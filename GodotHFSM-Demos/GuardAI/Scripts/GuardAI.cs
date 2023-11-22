@@ -100,7 +100,6 @@ namespace GodotHFSM.Samples.GuardAI
         {
             fsm.OnLogic(delta);
             Position = nextPosition;
-            //MoveAndSlide();
         }
 
         // Triggers the `PlayerSpotted` event.
