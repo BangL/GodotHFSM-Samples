@@ -3,11 +3,35 @@ namespace GodotHFSM.Samples.GuardAI;
 using Godot;
 
 public partial class PlayerController : CharacterBody2D {
-    [Export] public float Speed { get; set; } = 400;
+    /// <summary>
+    /// Declare the finite state machine
+    /// </summary>
+    private StateMachine _fsm;
+
+    [Export] public float Speed { get; set; } = 200;
+
+    public override void _Ready() {
+        _fsm = new();
+
+        _fsm.AddState("Idle", isGhostState: true);
+        _fsm.SetStartState("Idle");
+
+        _fsm.AddState("Moving",
+            onLogic: (_, delta) => {
+                Velocity = GetInputDirection() * Speed * (float)delta * 100f;
+                MoveAndSlide();
+            },
+            canExit: _ => GetInputDirection() == Vector2.Zero,
+            needsExitTime: true
+        );
+        _fsm.AddTransition("Idle", "Moving", _ => GetInputDirection() != Vector2.Zero);
+        _fsm.AddTransition("Moving", "Idle");
+
+        _fsm.Init();
+    }
 
     public override void _PhysicsProcess(double delta) {
-        Velocity = GetInputDirection() * Speed;
-        MoveAndSlide();
+        _fsm.OnLogic(delta);
     }
 
     private static Vector2 GetInputDirection() {

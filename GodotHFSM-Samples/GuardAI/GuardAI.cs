@@ -9,7 +9,7 @@ public partial class GuardAI : CharacterBody2D {
     /// <summary>
     /// Declare the finite state machine
     /// </summary>
-    private readonly StateMachine _fsm = new();
+    private StateMachine<string, State, string> _fsm;
 
     /// <summary>
     /// Internal fields
@@ -19,6 +19,10 @@ public partial class GuardAI : CharacterBody2D {
     private Vector2 _lastSeenPlayerPosition;
     private Vector2 _nextPosition;
 
+    /// <summary>
+    /// Parameters (can be changed in the inspector)
+    /// </summary>
+    // [Export] public Animator animator;
     [Export] public float AttackRange { get; set; } = 60;
     [Export] public float AttackSpeed { get; set; } = 150;
     [Export] public float ChaseSpeed { get; set; } = 200;
@@ -30,10 +34,6 @@ public partial class GuardAI : CharacterBody2D {
     /// in seconds
     /// </summary>
     [Export] public float SearchTime { get; set; } = 20;
-    /// <summary>
-    /// Parameters (can be changed in the inspector)
-    /// [Export] public Animator animator;
-    /// </summary>
     [Export] public Label StateDisplayText { get; set; }
 
     /// <summary>
@@ -42,11 +42,45 @@ public partial class GuardAI : CharacterBody2D {
     private Vector2? PlayerPosition => _player?.Position;
     private float? DistanceToPlayer => PlayerPosition?.DistanceTo(Position);
 
+    public enum State {
+        Patrol = 0,
+        Chase = 1,
+        Fight = 2,
+        Search = 3,
+        Wait = 4,
+        Telegraph = 5,
+        Hit = 6
+    }
+    public enum FightState {
+        Wait = 0,
+        Telegraph = 1,
+        Hit = 2
+    }
+
     public override void _Ready() {
         _nextPosition = Position;
 
-        // Fight FSM
-        HybridStateMachine fightFsm = new(
+        // Root FSM
+        _fsm = new();
+
+        // Patrol
+        _fsm.AddState(State.Patrol, new CoState<State>(Patrol, loop: false));
+
+        _fsm.SetStartState(State.Patrol);
+
+        // Chase
+        _fsm.AddState(State.Chase,
+          onLogic: (_, delta) => {
+              if (PlayerPosition.HasValue) {
+                  MoveTowards(PlayerPosition.Value, ChaseSpeed, delta);
+              }
+          }
+        );
+
+        _fsm.AddTriggerTransition("PlayerSpotted", State.Patrol, State.Chase);
+
+        // Fight
+        HybridStateMachine<State, FightState, string> fightFsm = new(
           beforeOnLogic: (_, delta) => {
               if (PlayerPosition.HasValue) {
                   MoveTowards(PlayerPosition.Value, AttackSpeed, delta, 40);
@@ -55,55 +89,48 @@ public partial class GuardAI : CharacterBody2D {
           needsExitTime: true
         );
 
-        fightFsm.AddState("Wait" /*, onEnter: state => animator.Play("GuardIdle")*/);
-        fightFsm.AddState("Telegraph" /*, onEnter: state => animator.Play("GuardTelegraph")*/);
-        fightFsm.AddState("Hit",
+        // Fight/Wait
+        fightFsm.AddState(FightState.Wait /*, onEnter: state => animator.Play("GuardIdle")*/);
+
+        // Because the exit transition should have the highest precedence,
+        // it is added before the other transitions.
+        fightFsm.AddExitTransition(FightState.Wait);
+
+        // Fight/Telegraph
+        fightFsm.AddState(FightState.Telegraph /*, onEnter: state => animator.Play("GuardTelegraph")*/);
+
+        fightFsm.AddTransition(new TransitionAfter<FightState>(FightState.Wait, FightState.Telegraph, 0.5f));
+
+        // Fight/Hit
+        fightFsm.AddState(FightState.Hit,
           _ => {
               //animator.Play("GuardHit");
               // TODO: Cause damage to player if in range.
           }
         );
 
-        // Because the exit transition should have the highest precedence,
-        // it is added before the other transitions.
-        fightFsm.AddExitTransition("Wait");
+        fightFsm.AddTransition(new TransitionAfter<FightState>(FightState.Telegraph, FightState.Hit, 0.42f));
 
-        fightFsm.AddTransition(new TransitionAfter("Wait", "Telegraph", 0.5f));
-        fightFsm.AddTransition(new TransitionAfter("Telegraph", "Hit", 0.42f));
-        fightFsm.AddTransition(new TransitionAfter("Hit", "Wait", 0.5f));
+        fightFsm.AddTransition(new TransitionAfter<FightState>(FightState.Hit, FightState.Wait, 0.5f));
 
-        // Root FSM
-        _fsm.AddState("Patrol", new CoState(Patrol, loop: false));
-        _fsm.AddState("Chase",
-          onLogic: (_, delta) => {
-              if (PlayerPosition.HasValue) {
-                  MoveTowards(PlayerPosition.Value, ChaseSpeed, delta);
-              }
-          }
-        );
-        _fsm.AddState("Fight", fightFsm);
-        _fsm.AddState("Search", new CoState(Search, loop: false));
+        _fsm.AddState(State.Fight, fightFsm);
 
-        _fsm.SetStartState("Patrol");
+        _fsm.AddTwoWayTransition(State.Chase, State.Fight, condition: _ => DistanceToPlayer <= AttackRange);
 
-        _fsm.AddTriggerTransition("PlayerSpotted", "Patrol", "Chase");
-        _fsm.AddTwoWayTransition("Chase", "Fight", _ => DistanceToPlayer <= AttackRange);
-        _fsm.AddTransition("Chase", "Search",
-          _ => DistanceToPlayer > SearchSpotRange,
-          _ => _lastSeenPlayerPosition = PlayerPosition!.Value);
-        _fsm.AddTransition("Search", "Chase", _ => DistanceToPlayer <= SearchSpotRange);
-        _fsm.AddTransition(new TransitionAfter("Search", "Patrol", SearchTime));
+        // Search
+        _fsm.AddState(State.Search, new CoState<State>(Search, loop: false));
+
+        _fsm.AddTransition(State.Chase, State.Search, condition: _ => DistanceToPlayer > SearchSpotRange,
+                                                      onTransition: _ => _lastSeenPlayerPosition = PlayerPosition.Value);
+
+        _fsm.AddTransition(State.Search, State.Chase, condition: _ => DistanceToPlayer <= SearchSpotRange);
+        _fsm.AddTransition(new TransitionAfter<State>(State.Search, State.Patrol, SearchTime));
 
         _fsm.Init();
     }
 
     public override void _Process(double delta) {
-        StateDisplayText!.Text = _fsm.GetActiveHierarchyPath();
-        QueueRedraw();
-    }
-
-    public override void _Draw() {
-        DrawLine(Position, _nextPosition, Colors.Red, 2);
+        StateDisplayText.Text = _fsm.GetActiveHierarchyPath();
     }
 
     public override void _PhysicsProcess(double delta) {
