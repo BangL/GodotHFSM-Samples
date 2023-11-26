@@ -407,3 +407,12 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+#other
+nupkg/
+coverage/*
+!coverage/.gdignore
+bin/
+obj/
+.generated/
+.DS_Store

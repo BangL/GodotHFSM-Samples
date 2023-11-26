@@ -1,7 +1,6 @@
 [submodule "HCoroutines"]
 	path = HCoroutines
 	url = git@github.com:Inspiaaa/HCoroutines.git
-	ignore = dirty
 [submodule "GodotHFSM"]
 	path = GodotHFSM
 	url = git@github.com:BangL/GodotHFSM.git
