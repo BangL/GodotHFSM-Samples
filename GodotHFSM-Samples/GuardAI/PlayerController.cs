@@ -21,10 +21,10 @@ public partial class PlayerController : CharacterBody2D {
                 Velocity = GetInputDirection() * Speed * (float)delta * 100f;
                 MoveAndSlide();
             },
-            canExit: _ => GetInputDirection() == Vector2.Zero,
+            canExit: _ => GetInputDirection().IsZeroApprox(),
             needsExitTime: true
         );
-        _fsm.AddTransition("Idle", "Moving", _ => GetInputDirection() != Vector2.Zero);
+        _fsm.AddTransition("Idle", "Moving", _ => !GetInputDirection().IsZeroApprox());
         _fsm.AddTransition("Moving", "Idle");
 
         _fsm.Init();
