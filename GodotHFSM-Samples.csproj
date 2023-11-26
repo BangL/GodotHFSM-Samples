@@ -1,0 +1,26 @@
+<Project Sdk="Godot.NET.Sdk/4.2.0-rc.2">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>GodotHFSMSamples</RootNamespace>
+    <LangVersion>11.0</LangVersion>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <Title>GodotHFSMSamples</Title>
+    <Version>1.0.0</Version>
+    <Description>GodotHFSMSamples</Description>
+    <Copyright>© 2023 BangL</Copyright>
+    <Authors>GodotHFSMSamples</Authors>
+    <Company>GodotHFSMSamples</Company>
+    <DefaultItemExcludes Condition="'$(Configuration)' == 'ExportRelease'">
+      $(DefaultItemExcludes);test/**/*
+    </DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- Test dependencies go here! -->
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Production dependencies go here! -->
+  </ItemGroup>
+</Project>
